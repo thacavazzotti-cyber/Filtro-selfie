@@ -1,1 +1,247 @@
-index.html
+
+
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Filtro de Selfie</title>
+
+<style>
+
+* { box-sizing: border-box; }
+
+body {
+
+  margin: 0;
+
+  padding: 16px;
+
+  background: #f6eafa;
+
+  font-family: Arial, sans-serif;
+
+  text-align: center;
+
+  color: #63427a;
+
+}
+
+h2 { margin-bottom: 8px; }
+
+#area {
+
+  position: relative;
+
+  width: min(100%, 400px);
+
+  aspect-ratio: 9 / 16;
+
+  margin: 15px auto;
+
+  background: #222;
+
+  overflow: hidden;
+
+  border-radius: 15px;
+
+}
+
+video, #moldura {
+
+  position: absolute;
+
+  inset: 0;
+
+  width: 100%;
+
+  height: 100%;
+
+}
+
+video {
+
+  object-fit: cover;
+
+  transform: scaleX(-1);
+
+}
+
+#moldura {
+
+  pointer-events: none;
+
+}
+
+button {
+
+  background: #9564b9;
+
+  color: white;
+
+  border: none;
+
+  border-radius: 12px;
+
+  padding: 14px 20px;
+
+  margin: 8px;
+
+  font-size: 16px;
+
+}
+
+#foto {
+
+  display: none;
+
+  width: min(100%, 400px);
+
+  margin: 15px auto;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>Minha Selfie Especial 💜</h2>
+
+<p>Registre esse momento!</p>
+
+<div id="area">
+
+  <video id="camera" autoplay playsinline muted></video>
+
+  <img id="moldura" src="moldura.png" alt="">
+
+</div>
+
+<button onclick="tirarFoto()">📸 Tirar foto</button>
+
+<img id="foto" alt="Sua selfie">
+
+<div>
+
+  <a id="salvar" style="display:none">
+
+    <button>💜 Salvar foto</button>
+
+  </a>
+
+</div>
+
+<p>Permita o acesso à câmera.</p>
+
+<script>
+
+const video = document.getElementById("camera");
+
+const moldura = document.getElementById("moldura");
+
+async function iniciarCamera() {
+
+  try {
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+
+      audio: false,
+
+      video: { facingMode: "user" }
+
+    });
+
+    video.srcObject = stream;
+
+    await video.play();
+
+  } catch (erro) {
+
+    alert("Permita o acesso à câmera no navegador.");
+
+  }
+
+}
+
+function tirarFoto() {
+
+  if (!video.videoWidth) {
+
+    alert("Aguarde a câmera abrir.");
+
+    return;
+
+  }
+
+  const canvas = document.createElement("canvas");
+
+  canvas.width = 1080;
+
+  canvas.height = 1920;
+
+  const ctx = canvas.getContext("2d");
+
+  const vw = video.videoWidth;
+
+  const vh = video.videoHeight;
+
+  const escala = Math.max(1080 / vw, 1920 / vh);
+
+  const sw = 1080 / escala;
+
+  const sh = 1920 / escala;
+
+  ctx.save();
+
+  ctx.translate(1080, 0);
+
+  ctx.scale(-1, 1);
+
+  ctx.drawImage(
+
+    video,
+
+    (vw-sw)/2, (vh-sh)/2, sw, sh,
+
+    0, 0, 1080, 1920
+
+  );
+
+  ctx.restore();
+
+  if (moldura.complete && moldura.naturalWidth) {
+
+    ctx.drawImage(moldura, 0, 0, 1080, 1920);
+
+  }
+
+  const imagem = canvas.toDataURL("image/png");
+
+  document.getElementById("foto").src = imagem;
+
+  document.getElementById("foto").style.display = "block";
+
+  const salvar = document.getElementById("salvar");
+
+  salvar.href = imagem;
+
+  salvar.download = "minha-selfie.png";
+
+  salvar.style.display = "block";
+
+}
+
+iniciarCamera();
+
+</script>
+
+</body>
+
+</html>
