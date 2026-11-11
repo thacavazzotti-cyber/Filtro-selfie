@@ -1,247 +1,333 @@
 
-
 <!DOCTYPE html>
-
 <html lang="pt-BR">
-
 <head>
-
 <meta charset="UTF-8">
-
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>Filtro de Selfie</title>
-
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Selfie Especial da Heloísa</title>
 <style>
-
-* { box-sizing: border-box; }
-
-body {
-
-  margin: 0;
-
-  padding: 16px;
-
-  background: #f6eafa;
-
-  font-family: Arial, sans-serif;
-
-  text-align: center;
-
-  color: #63427a;
-
+*{box-sizing:border-box}
+body{
+ margin:0;padding:15px;
+ background:#f6eafa;
+ font-family:Arial,sans-serif;
+ text-align:center;color:#654477
 }
-
-h2 { margin-bottom: 8px; }
-
-#area {
-
-  position: relative;
-
-  width: min(100%, 400px);
-
-  aspect-ratio: 9 / 16;
-
-  margin: 15px auto;
-
-  background: #222;
-
-  overflow: hidden;
-
-  border-radius: 15px;
-
+h2{margin:10px 0}
+.area{
+ position:relative;
+ width:min(100%,400px);
+ aspect-ratio:9/16;
+ margin:15px auto;
+ background:#222;
+ overflow:hidden;
+ border-radius:16px
 }
-
-video, #moldura {
-
-  position: absolute;
-
-  inset: 0;
-
-  width: 100%;
-
-  height: 100%;
-
+.area video,.area img{
+ position:absolute;inset:0;
+ width:100%;height:100%
 }
-
-video {
-
-  object-fit: cover;
-
-  transform: scaleX(-1);
-
+.area video{object-fit:cover}
+.area img{pointer-events:none}
+.espelho{transform:scaleX(-1)}
+button,.salvar{
+ display:inline-block;
+ background:#9564b9;color:white;
+ border:0;border-radius:12px;
+ padding:13px;margin:5px;
+ font-size:15px;text-decoration:none
 }
-
-#moldura {
-
-  pointer-events: none;
-
+button:disabled{opacity:.5}
+#foto,#videoFinal{
+ display:none;
+ width:min(100%,400px);
+ margin:12px auto;
+ border-radius:12px
 }
-
-button {
-
-  background: #9564b9;
-
-  color: white;
-
-  border: none;
-
-  border-radius: 12px;
-
-  padding: 14px 20px;
-
-  margin: 8px;
-
-  font-size: 16px;
-
-}
-
-#foto {
-
-  display: none;
-
-  width: min(100%, 400px);
-
-  margin: 15px auto;
-
-}
-
+#status{font-size:14px}
 </style>
-
 </head>
-
 <body>
 
 <h2>Minha Selfie Especial 💜</h2>
+<p>Heloísa - 1 aninho</p>
 
-<p>Registre esse momento!</p>
-
-<div id="area">
-
-  <video id="camera" autoplay playsinline muted></video>
-
-  <img id="moldura" src="moldura.png" alt="">
-
+<div class="area">
+ <video id="camera" autoplay playsinline muted></video>
+ <img id="moldura" src="moldura.png" alt="Moldura">
 </div>
-
-<button onclick="tirarFoto()">📸 Tirar foto</button>
-
-<img id="foto" alt="Sua selfie">
 
 <div>
-
-  <a id="salvar" style="display:none">
-
-    <button>💜 Salvar foto</button>
-
-  </a>
-
+ <button onclick="virarCamera()" id="virar">
+ 🔄 Virar câmera
+ </button>
 </div>
 
-<p>Permita o acesso à câmera.</p>
+<div>
+ <button onclick="tirarFoto()" id="fotoBtn">
+ 📸 Tirar foto
+ </button>
+ <button onclick="gravar()" id="gravarBtn">
+ 🎥 Gravar vídeo
+ </button>
+ <button onclick="parar()" id="pararBtn" disabled>
+ ⏹ Parar
+ </button>
+</div>
+
+<p id="status">Preparando câmera...</p>
+
+<img id="foto" alt="Sua foto">
+<video id="videoFinal" controls playsinline></video>
+
+<div>
+ <a id="salvarFoto" class="salvar"
+ style="display:none">💜 Salvar foto</a>
+ <a id="salvarVideo" class="salvar"
+ style="display:none">💜 Salvar vídeo</a>
+</div>
 
 <script>
+const camera=document.getElementById("camera");
+const moldura=document.getElementById("moldura");
+const statusEl=document.getElementById("status");
 
-const video = document.getElementById("camera");
+let lado="user";
+let stream=null;
+let recorder=null;
+let partes=[];
+let canvas,ctx,animacao;
+let urlVideo=null;
+let gravando=false;
 
-const moldura = document.getElementById("moldura");
-
-async function iniciarCamera() {
-
-  try {
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-
-      audio: false,
-
-      video: { facingMode: "user" }
-
-    });
-
-    video.srcObject = stream;
-
-    await video.play();
-
-  } catch (erro) {
-
-    alert("Permita o acesso à câmera no navegador.");
-
-  }
-
+function mensagem(t){
+ statusEl.textContent=t;
 }
 
-function tirarFoto() {
-
-  if (!video.videoWidth) {
-
-    alert("Aguarde a câmera abrir.");
-
-    return;
-
+async function abrirCamera(){
+ try{
+  if(stream){
+   stream.getTracks().forEach(t=>t.stop());
   }
 
-  const canvas = document.createElement("canvas");
+  stream=await navigator.mediaDevices.getUserMedia({
+   video:{facingMode:{ideal:lado}},
+   audio:false
+  });
 
-  canvas.width = 1080;
-
-  canvas.height = 1920;
-
-  const ctx = canvas.getContext("2d");
-
-  const vw = video.videoWidth;
-
-  const vh = video.videoHeight;
-
-  const escala = Math.max(1080 / vw, 1920 / vh);
-
-  const sw = 1080 / escala;
-
-  const sh = 1920 / escala;
-
-  ctx.save();
-
-  ctx.translate(1080, 0);
-
-  ctx.scale(-1, 1);
-
-  ctx.drawImage(
-
-    video,
-
-    (vw-sw)/2, (vh-sh)/2, sw, sh,
-
-    0, 0, 1080, 1920
-
+  camera.srcObject=stream;
+  camera.classList.toggle(
+   "espelho",lado==="user"
   );
-
-  ctx.restore();
-
-  if (moldura.complete && moldura.naturalWidth) {
-
-    ctx.drawImage(moldura, 0, 0, 1080, 1920);
-
-  }
-
-  const imagem = canvas.toDataURL("image/png");
-
-  document.getElementById("foto").src = imagem;
-
-  document.getElementById("foto").style.display = "block";
-
-  const salvar = document.getElementById("salvar");
-
-  salvar.href = imagem;
-
-  salvar.download = "minha-selfie.png";
-
-  salvar.style.display = "block";
-
+  await camera.play();
+  mensagem("Câmera pronta! 💜");
+ }catch(e){
+  mensagem("Permita acesso à câmera.");
+ }
 }
 
-iniciarCamera();
+async function virarCamera(){
+ if(gravando)return;
+ lado=lado==="user"?"environment":"user";
+ await abrirCamera();
+}
 
+function prepararCanvas(){
+ canvas=document.createElement("canvas");
+ canvas.width=720;
+ canvas.height=1280;
+ ctx=canvas.getContext("2d");
+}
+
+function desenhar(){
+ if(!camera.videoWidth)return;
+
+ const w=canvas.width;
+ const h=canvas.height;
+ const vw=camera.videoWidth;
+ const vh=camera.videoHeight;
+ const escala=Math.max(w/vw,h/vh);
+ const sw=w/escala;
+ const sh=h/escala;
+
+ ctx.clearRect(0,0,w,h);
+ ctx.save();
+
+ if(lado==="user"){
+  ctx.translate(w,0);
+  ctx.scale(-1,1);
+ }
+
+ ctx.drawImage(
+  camera,
+  (vw-sw)/2,(vh-sh)/2,
+  sw,sh,0,0,w,h
+ );
+
+ ctx.restore();
+
+ if(moldura.complete&&moldura.naturalWidth){
+  ctx.drawImage(moldura,0,0,w,h);
+ }
+}
+
+function tirarFoto(){
+ if(gravando)return;
+ if(!camera.videoWidth){
+  mensagem("Aguarde a câmera.");
+  return;
+ }
+
+ prepararCanvas();
+ desenhar();
+
+ const url=canvas.toDataURL("image/png");
+ const img=document.getElementById("foto");
+ const link=document.getElementById("salvarFoto");
+
+ img.src=url;
+ img.style.display="block";
+ link.href=url;
+ link.download="selfie-heloisa.png";
+ link.style.display="inline-block";
+ mensagem("Foto pronta! 💜");
+}
+
+function atualizarQuadro(){
+ desenhar();
+ animacao=requestAnimationFrame(atualizarQuadro);
+}
+
+function tipoVideo(){
+ const tipos=[
+  "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+  "video/mp4",
+  "video/webm;codecs=vp8,opus",
+  "video/webm"
+ ];
+ return tipos.find(t=>MediaRecorder.isTypeSupported(t))||"";
+}
+
+async function gravar(){
+ if(gravando)return;
+
+ if(!camera.videoWidth){
+  mensagem("Aguarde a câmera.");
+  return;
+ }
+
+ if(!window.MediaRecorder||
+    !HTMLCanvasElement.prototype.captureStream){
+  mensagem("Gravação não suportada neste navegador.");
+  return;
+ }
+
+ let microfone;
+ try{
+  microfone=await navigator.mediaDevices.getUserMedia({
+   audio:true,video:false
+  });
+ }catch(e){
+  mensagem("Permita o acesso ao microfone.");
+  return;
+ }
+
+ prepararCanvas();
+ atualizarQuadro();
+
+ let videoStream;
+ try{
+  videoStream=canvas.captureStream(30);
+ }catch(e){
+  cancelAnimationFrame(animacao);
+  microfone.getTracks().forEach(t=>t.stop());
+  mensagem("Não foi possível capturar o vídeo.");
+  return;
+ }
+
+ const combinado=new MediaStream([
+  ...videoStream.getVideoTracks(),
+  ...microfone.getAudioTracks()
+ ]);
+
+ const tipo=tipoVideo();
+
+ try{
+  recorder=new MediaRecorder(
+   combinado,
+   tipo?{mimeType:tipo}:undefined
+  );
+ }catch(e){
+  cancelAnimationFrame(animacao);
+  combinado.getTracks().forEach(t=>t.stop());
+  mensagem("Formato de vídeo incompatível.");
+  return;
+ }
+
+ partes=[];
+
+ recorder.ondataavailable=e=>{
+  if(e.data.size>0)partes.push(e.data);
+ };
+
+ recorder.onstop=()=>{
+  cancelAnimationFrame(animacao);
+  combinado.getTracks().forEach(t=>t.stop());
+
+  const mime=recorder.mimeType||"video/webm";
+  const blob=new Blob(partes,{type:mime});
+
+  if(urlVideo)URL.revokeObjectURL(urlVideo);
+  urlVideo=URL.createObjectURL(blob);
+
+  const video=document.getElementById("videoFinal");
+  const link=document.getElementById("salvarVideo");
+
+  video.src=urlVideo;
+  video.style.display="block";
+
+  const extensao=mime.includes("mp4")?"mp4":"webm";
+  link.href=urlVideo;
+  link.download="video-heloisa."+extensao;
+  link.style.display="inline-block";
+
+  gravando=false;
+  document.getElementById("gravarBtn").disabled=false;
+  document.getElementById("pararBtn").disabled=true;
+  document.getElementById("virar").disabled=false;
+  document.getElementById("fotoBtn").disabled=false;
+
+  mensagem("Vídeo pronto! Confira o áudio e salve. 💜");
+ };
+
+ recorder.onerror=()=>{
+  mensagem("Ocorreu um erro na gravação.");
+  if(recorder.state!=="inactive")recorder.stop();
+ };
+
+ try{
+  recorder.start(250);
+  gravando=true;
+  document.getElementById("gravarBtn").disabled=true;
+  document.getElementById("pararBtn").disabled=false;
+  document.getElementById("virar").disabled=true;
+  document.getElementById("fotoBtn").disabled=true;
+  mensagem("🔴 Gravando vídeo com áudio...");
+ }catch(e){
+  cancelAnimationFrame(animacao);
+  combinado.getTracks().forEach(t=>t.stop());
+  mensagem("Não foi possível iniciar a gravação.");
+ }
+}
+
+function parar(){
+ if(recorder&&recorder.state==="recording"){
+  recorder.stop();
+  mensagem("Preparando seu vídeo...");
+ }
+}
+
+abrirCamera();
 </script>
-
 </body>
-
 </html>
